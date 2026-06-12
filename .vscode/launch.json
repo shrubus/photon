@@ -1,0 +1,16 @@
+
+// {
+//     "version": "0.2.0",
+//     "configurations": [
+//         {
+//             "name": "Debug photon-dedup",
+//             "type": "debugpy",
+//             "request": "launch",
+//             "module": "photon.main",
+//             "args": ["data/album/"],
+//             "console": "integratedTerminal",
+//             "justMyCode": false,
+//             "cwd": "${workspaceFolder}"
+//         }
+//     ]
+// }

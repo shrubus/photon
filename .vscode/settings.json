@@ -1,0 +1,5 @@
+{
+    "files.trimTrailingWhitespace": true,
+    "editor.trimAutoWhitespace": true,
+    "python.defaultInterpreterPath": "/home/rubus/projs/photon/.venv/bin/python"
+}
