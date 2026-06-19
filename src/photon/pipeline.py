@@ -38,7 +38,9 @@ def resolve_duplicates(sig_groups: SigGroupMap, criteria: list[Step]) -> list[De
     return dedup_pairs
 
 
-def dedupe(images: set[Path], sig_fn: ImgSigFn, criteria: list[Step], trash: Path) -> set[Path]:
+def dedupe_pipeline(
+    images: set[Path], sig_fn: ImgSigFn, criteria: list[Step], trash: Path
+) -> set[Path]:
     """Move duplicates to a denominated trash directory and return list of paths removed"""
 
     sig_groups = group_duplicates(files=images, sig_fn=sig_fn)

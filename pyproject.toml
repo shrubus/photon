@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-photon-dedup = "photon.main:main"
+photon = "photon.main:main"
 
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]
