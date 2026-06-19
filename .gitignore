@@ -9,4 +9,10 @@ wheels/
 # Virtual environments
 .venv
 
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+
+
 data/
