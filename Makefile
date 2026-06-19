@@ -13,12 +13,25 @@ SHELL := /bin/sh
 requirements:
 	@uv sync
 
+.PHONY: data
+data:
+	@uv run python -m scripts.duplicate data/source/ data/album
+	@uv run python -m scripts.duplicate data/album
+	@uv run python -m scripts.duplicate data/source/ data/dump
+	@uv run python -m scripts.duplicate data/dump
+	@uv run python -m scripts.duplicate data/source/ data/nested
+	@uv run python -m scripts.duplicate data/source/ data/nested/dump
+
 .PHONY: clean
 clean:
 	@find . -type f -name "*.py[co]" -delete
 	@find . -type d -name "__pycache__" -exec rm -r {} +
 	@find . -type d -name ".mypy_cache" -exec rm -r {} +
 	@find . -type d -name ".pytest_cache" -exec rm -r {} +
+	@find data -type d -name "album" -exec rm -r {} +
+	@find data -type d -name "dump" -exec rm -r {} +
+	@find data -type d -name "nested" -exec rm -r {} +
+	@find data -type d -name "trash" -exec rm -r {} +
 
 
 .PHONY: lint
