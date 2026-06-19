@@ -3,7 +3,11 @@
 import sys
 from pathlib import Path
 from pprint import pprint
-from photon.dedup import select_images, dedupe_pipeline
+
+from photon.io import select_images
+from photon.pipeline import dedupe
+from photon.detection import hash_signature
+from photon.selection import select_from_album, remove_named_copy, ask_user
 
 
 def main() -> None:
@@ -19,13 +23,18 @@ def main() -> None:
     for album in albums:
         selected.update(select_images(album))
 
-    img_copies_removed = dedupe_pipeline(
+    removed = dedupe(
         images=selected,
-        ref_album=ref_album,
+        sig_fn=hash_signature,
+        criteria=[
+            select_from_album(ref_album=ref_album),
+            remove_named_copy,
+            ask_user,
+        ],
         trash=Path("./data/trash"),
     )
 
-    pprint(img_copies_removed)
+    pprint(removed)
 
 
 if __name__ == "__main__":
