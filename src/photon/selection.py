@@ -6,35 +6,10 @@ to decide which duplicated files should be kept. If a selection step criterum
 do not retrieve any file to keep, it returns the full collection (no decision).
 """
 
-from collections import Counter
 from typing import Callable
 from pathlib import Path
 
-from .core import _clean_image_suffix
-from .io import select_images
-
 type Step = Callable[[set[Path]], set[Path]]
-
-
-def get_earliest(dupl_files: set[Path]) -> set[Path]:
-    """
-    IMPORTANT:
-    This deduplication step is not currently used in any active deduplication pipeline.
-    The heuristics is intentionally weak and should only be applied for unsupervised
-    cleanup of a "photo dump" directory, where filesystem metadata is irrelevant
-    (e.g. directory structure, naming conventions).
-
-    Return all filepaths with the earliest modification time"""
-
-    if not dupl_files:
-        return set()
-    files = dupl_files.copy()
-
-    mtimes: list[tuple[float, Path]]  # [<modification time epoch>,<filepath>]
-    mtimes = [(p.stat(follow_symlinks=False).st_mtime, p) for p in files]
-
-    earliest_time = min(t for t, _ in mtimes)
-    return {p for t, p in mtimes if t == earliest_time}
 
 
 def remove_named_copy(dupl_files: set[Path]) -> set[Path]:
@@ -46,61 +21,6 @@ def remove_named_copy(dupl_files: set[Path]) -> set[Path]:
 
     no_named_copy = {p for p in files if "copy" not in p.name.lower()}
     return no_named_copy if no_named_copy else files
-
-
-def select_by_most_common_size(pct: float) -> Step:
-    """
-    IMPORTANT:
-    This deduplication step is not currently used in any active deduplication pipeline.
-    The heuristics is intentionally weak and should only be applied for unsupervised
-    cleanup of a "photo dump" directory, where filesystem metadata is irrelevant
-    (e.g. directory structure, naming conventions).
-
-    Select files whose filename length matches the dominant camera filename length,
-    for the same image file format (using files extension as heuristics).
-
-    If no dominant length exists (below pct threshold), return all files unchanged.
-    """
-
-    if pct > 1 or pct < 0.5:
-        raise ValueError(f"pct threshold not in [0.5, 1]: {pct}")
-
-    def step(dupl_files: set[Path]) -> set[Path]:
-
-        if not dupl_files:
-            return set()
-        files = dupl_files.copy()
-
-        # duplicated images should share the same file extension
-        suffixes = {_clean_image_suffix(p.suffix) for p in files}
-        if len(suffixes) > 1:
-            return files
-        suffix = next(iter(suffixes))
-
-        parents = {p.parent for p in files}
-        img_paths = [
-            img for img in select_images(*parents) if _clean_image_suffix(img.suffix) == suffix
-        ]
-
-        if not img_paths:
-            return files
-
-        counter = Counter(len(p.name) for p in img_paths)
-        if not counter:
-            return files
-
-        # Most common length among the duplicates
-        ((length, count),) = counter.most_common(1)
-
-        # Require dominance (e.g., 80% of duplicates share this length)
-        if count < pct * counter.total():
-            return files
-
-        # Filter by dominant length
-        filtered = {p for p in files if len(p.name) == length}
-        return filtered if filtered else files
-
-    return step
 
 
 def select_from_album(ref_album: Path | None) -> Step:
