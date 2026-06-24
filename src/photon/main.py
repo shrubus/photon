@@ -5,7 +5,7 @@ from importlib.metadata import version
 import argparse
 from pprint import pprint
 
-from photon.io import select_images
+from photon.io import get_images
 from photon.pipeline import dedupe_pipeline
 from photon.detection import hash_signature
 from photon.selection import select_from_album, remove_named_copy, ask_user
@@ -16,19 +16,25 @@ def dedupe_albums(args: argparse.Namespace) -> None:
     Deduplicate images according to CLI arguments.
 
     - If no reference album is provided, perform intra-album deduplication on the
-      source directory only.
+      source directory only, unless user pass "--recursive" flag.
 
-    - If a reference album is provided, first remove files in the source directory
+    - If a reference album is provided, first recursively remove files in the source directory
       that also appear in the reference album (cross-album deduplication). After
       cross-album removal, perform intra-album deduplication within both the source
-      are the reference directories.
+      and the reference directories.
+
+
     """
 
     # Collect images
-    images = select_images(args.src)
+    images: set[Path] = set()
     if args.ref is not None:
-        images.update(select_images(args.ref))
+        images.update(get_images(args.src, recursive=True))
+        images.update(get_images(args.ref, recursive=True))
+    else:
+        images.update(get_images(args.src, recursive=args.recursive))
 
+    # Dedupe
     removed = dedupe_pipeline(
         images=images,
         sig_fn=hash_signature,
@@ -60,8 +66,10 @@ def build_cli_argparser() -> argparse.ArgumentParser:
 
     dedupe = domains.add_parser("dedupe", help="Remove duplicate images")
     dedupe.add_argument("src", type=Path)
-    dedupe.add_argument("--ref", type=Path)
     dedupe.add_argument("-s", "--silent", action="store_true", help="Do not print removed files")
+    recursive_group = dedupe.add_mutually_exclusive_group()
+    recursive_group.add_argument("--ref", nargs="?", type=Path)
+    recursive_group.add_argument("-r", "--recursive", action="store_true")
     dedupe.set_defaults(func=dedupe_albums)
 
     return argparser

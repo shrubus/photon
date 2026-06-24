@@ -4,12 +4,12 @@ import shutil
 from pathlib import Path
 import json
 
-from .core import _clean_image_suffix, DedupPair
+from .core import select_images, DedupPair
 
 LOGFILENAME = "log_paths.json"
 
 
-def select_images(src: Path) -> set[Path]:
+def get_images(src: Path, recursive: bool) -> set[Path]:
     """
     Return a list of image Paths in `src` (source directory), using suffix-based
     heuristics (does not open the files).
@@ -17,20 +17,14 @@ def select_images(src: Path) -> set[Path]:
     Does not search file in sub-directories.
     """
 
-    selected: set[Path] = set()
-
     if not isinstance(src, Path):
         raise TypeError("`src` must be of `pathlib.Path` type")
     if not src.is_dir(follow_symlinks=False):
         raise ValueError(f"Path is not a directory: {src}")
 
-    for path in src.iterdir():
-        if not path.is_file(follow_symlinks=False):
-            continue
-        if _clean_image_suffix(path.suffix) is not None:
-            selected.add(path)
+    paths = src.rglob("*") if recursive is True else src.iterdir()
 
-    return selected
+    return select_images(paths)
 
 
 def log_deduplication(dst: Path, duplicated: Path, original: Path, trash: Path) -> None:
