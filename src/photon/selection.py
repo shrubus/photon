@@ -6,63 +6,102 @@ to decide which duplicated files should be kept. If a selection step criterum
 do not retrieve any file to keep, it returns the full collection (no decision).
 """
 
+from dataclasses import dataclass
 from typing import Callable
-from pathlib import Path
+import re
 
-type Step = Callable[[set[Path]], set[Path]]
+from .model import ImgGroup
 
-
-def remove_named_copy(dupl_files: set[Path]) -> set[Path]:
-    """Return paths that do not have copy in name, or all paths if all have copy in name"""
-
-    if not dupl_files:
-        return set()
-    files = dupl_files.copy()
-
-    no_named_copy = {p for p in files if "copy" not in p.name.lower()}
-    return no_named_copy if no_named_copy else files
+type Step = Callable[[ImgGroup], ImgGroup]
 
 
-def select_from_album(ref_album: Path | None) -> Step:
+@dataclass
+class Control:
+    """Shared control flags for interactive selection steps."""
+
+    skip_all: bool
+
+
+def make_selection_pipeline(steps: list[Step]) -> Step:
     """
-    Return the paths of a duplicated image that are in a reference directory (`ref_album`),
-    or all paths if none of the paths are in the directory.
+    Compose a list of selection steps into a single meta-Step.
+
+    Each Step is a function that receives an ImgGroup and returns an ImgGroup,
+    mutating it in place by staging files for removal. The pipeline
+    stops early if the group becomes exhausted.
     """
-    if ref_album is not None:
-        if not ref_album.exists() or not ref_album.is_dir(follow_symlinks=False):
-            raise ValueError(f"Reference album should be a directory: {ref_album}")
 
-    def step(dupl_files: set[Path]) -> set[Path]:
+    def pipeline(img_group: ImgGroup) -> ImgGroup:
+        for step in steps:
+            if img_group.is_exhausted:
+                break
+            img_group = step(img_group)
+        return img_group
 
-        if ref_album is None:
-            return dupl_files
+    return pipeline
 
-        if not dupl_files:
-            return set()
 
-        files = dupl_files.copy()
-        in_album = {f for f in files if f.is_relative_to(ref_album)}
-        return in_album if in_album else files
+def remove_filename_with(pattern: str, flags: re.RegexFlag = re.IGNORECASE) -> Step:
+    """
+    Keep files with the minimal number of occurrences of `pattern` (case-insensitive by default),
+    and stage all others for removal.
+
+    Accepts standard library re flags.
+    """
+
+    pat = re.compile(pattern, flags=flags)
+
+    def step(img_group: ImgGroup) -> ImgGroup:
+        if img_group.is_exhausted:
+            return img_group
+
+        survivors = img_group.survivors
+        counts = {path: len(pat.findall(path.name)) for path in survivors}
+        min_count = min(counts.values())
+        to_remove = {p for p in survivors if counts[p] != min_count}
+        img_group.stage_for_removal(files=to_remove)
+        return img_group
 
     return step
 
 
-def ask_user(dupl_files: set[Path]) -> set[Path]:
+def ask_user(control: Control) -> Step:
     """
-    Return user selected path from a set of paths of duplicated images,
-    or all paths if use skips deduplication
+    Interactively select which file to keep among duplicates.
+
+    User options:
+    - number: keep that file
+    - 's': skip this group
+    - 'a': skip all remaining groups
     """
 
-    if not dupl_files:
-        return set()
-    files = list(dupl_files)
+    def step(img_group: ImgGroup) -> ImgGroup:
+        if control.skip_all or img_group.is_exhausted:
+            return img_group
 
-    msg = "Found the following duplicated images:\n"
-    msg += "\n".join(f"{i}: {p}" for i, p in enumerate(files))
-    msg += "\nType the number of the file to keep or 's' to skip: "
+        survivors = list(img_group.survivors)
+        msg = "\nFound the following duplicated images:\n"
+        msg += "\n".join(f"{i}: {p}" for i, p in enumerate(survivors))
+        msg += "\nType the number to keep, 's' to skip, or 'a' to skip all: "
 
-    try:
-        idx = int(input(msg))
-        return {files[idx]}
-    except (ValueError, IndexError):
-        return set(files)
+        choice = input(msg).strip().lower()
+
+        if choice == "s":
+            return img_group
+
+        if choice == "a":
+            control.skip_all = True
+            return img_group
+
+        try:
+            idx = int(choice)
+            file_to_keep = survivors[idx]
+        except (ValueError, IndexError):
+            return img_group
+
+        print(f"keeping: {file_to_keep}")
+        survivors.remove(file_to_keep)
+        img_group.stage_for_removal(set(survivors))
+        return img_group
+
+    return step

@@ -2,36 +2,55 @@
 
 from pathlib import Path
 from hashlib import md5
-from collections.abc import Callable, Hashable
+from collections.abc import Callable
+from typing import Protocol
 
-type ImgSigFn = Callable[[Path], Hashable]
-type SigGroupMap = dict[Hashable, set[Path]]
+from .model import ImgGroup, Signature
 
 
-def hash_signature(file: Path, chunk_size: int = 1024 * 1024) -> str:
+class GroupFn(Protocol):  # pylint: disable=too-few-public-methods
+    """Protocol that defines image grouping functions signature"""
+
+    def __call__(self, images: set[Path], ref_dir: Path | None) -> list[ImgGroup]:
+        pass
+
+
+type ImgSigFn = Callable[[Path], Signature]
+
+
+def _get_file_hash(filepath: Path, chunk_size: int = 1024 * 1024) -> int:
     """
     Compute a file hash incrementally in fixed-size chunks,
     without loading the entire file into memory.
     """
 
     h = md5()
-    with open(file, "rb") as f:
+    with open(filepath, "rb") as f:
         while chunk := f.read(chunk_size):
             h.update(chunk)
-    return h.hexdigest()
+    return int(h.hexdigest(), 16)
 
 
-def group_duplicates(files: set[Path], sig_fn: ImgSigFn) -> SigGroupMap:
+def _group_equal(images: set[Path], ref_dir: Path | None, img_sig_fn: ImgSigFn) -> list[ImgGroup]:
     """
-    Find duplicated files in a set of paths using `sig_fn` to compute a signature
-    for each file.
+    Group files with the same file signature computed using `img_sig_fn`.
+    Each group receives the shared signature as its group identifier.
+    Return only groups containing more than one file.
     """
 
-    sig_groups: SigGroupMap = {}
+    groups: dict[Signature, ImgGroup] = {}
 
-    for path in files:
-        if path.is_file(follow_symlinks=False):
-            sig = sig_fn(path)
-            sig_groups.setdefault(sig, set()).add(path)
+    for filepath in images:
+        if filepath.is_file(follow_symlinks=False):
+            signature = img_sig_fn(filepath)
+            groups.setdefault(signature, ImgGroup(signature, ref_dir)).add(filepath, signature)
 
-    return {sig: group for sig, group in sig_groups.items() if len(group) > 1}
+    return [grp for grp in groups.values() if len(grp) > 1]
+
+
+def group_equal_by_hash(images: set[Path], ref_dir: Path | None) -> list[ImgGroup]:
+    """
+    Group files with the same hash computed using the `hashlib.md5` algorithm.
+    Return list of groups that contain duplicates.
+    """
+    return _group_equal(images, ref_dir, _get_file_hash)

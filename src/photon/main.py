@@ -6,9 +6,9 @@ import argparse
 from pprint import pprint
 
 from photon.io import get_images
-from photon.pipeline import dedupe_pipeline
-from photon.detection import hash_signature
-from photon.selection import select_from_album, remove_named_copy, ask_user
+from photon.detection import group_equal_by_hash
+from photon.selection import make_selection_pipeline, remove_filename_with, ask_user, Control
+from photon.dedupe import dedupe
 
 
 def dedupe_albums(args: argparse.Namespace) -> None:
@@ -18,12 +18,9 @@ def dedupe_albums(args: argparse.Namespace) -> None:
     - If no reference album is provided, perform intra-album deduplication on the
       source directory only, unless user pass "--recursive" flag.
 
-    - If a reference album is provided, first recursively remove files in the source directory
-      that also appear in the reference album (cross-album deduplication). After
-      cross-album removal, perform intra-album deduplication within both the source
-      and the reference directories.
-
-
+    - If a reference album is provided, recursively remove files in the source directory
+      that also appear in the reference album (cross-album deduplication) which remains
+      untouched.
     """
 
     # Collect images
@@ -34,18 +31,25 @@ def dedupe_albums(args: argparse.Namespace) -> None:
     else:
         images.update(get_images(args.src, recursive=args.recursive))
 
+    # Selection
+    control = Control(skip_all=False)
+    selection_pipeline = make_selection_pipeline(
+        steps=[
+            remove_filename_with("copy"),
+            ask_user(control),
+        ]
+    )
+
     # Dedupe
-    removed = dedupe_pipeline(
+    removed = dedupe(
         images=images,
-        sig_fn=hash_signature,
-        criteria=[
-            select_from_album(ref_album=args.ref),
-            remove_named_copy,
-            ask_user,
-        ],
+        ref_dir=args.ref,
+        group_fn=group_equal_by_hash,
+        selection_pipeline=selection_pipeline,
         trash=Path("./data/trash"),
     )
 
+    # Console Report
     if not args.silent:
         pprint(removed)
         print(f"albums = {args.src}")
@@ -64,13 +68,17 @@ def build_cli_argparser() -> argparse.ArgumentParser:
     argparser.add_argument("-v", "--version", action="version", version=version("photon"))
     domains = argparser.add_subparsers(dest="domain", required=True, metavar="COMMAND")
 
-    dedupe = domains.add_parser("dedupe", help="Remove duplicate images")
-    dedupe.add_argument("src", type=Path)
-    dedupe.add_argument("-s", "--silent", action="store_true", help="Do not print removed files")
-    recursive_group = dedupe.add_mutually_exclusive_group()
-    recursive_group.add_argument("--ref", nargs="?", type=Path)
+    dedupe_cmd = domains.add_parser("dedupe", help="Remove duplicate images")
+    dedupe_cmd.add_argument("src", type=Path)
+    dedupe_cmd.add_argument(
+        "-s", "--silent", action="store_true", help="Do not print removed files"
+    )
+    recursive_group = dedupe_cmd.add_mutually_exclusive_group()
+    recursive_group.add_argument(
+        "--ref", nargs="?", type=Path, help="Reference album whose files must always be kept"
+    )
     recursive_group.add_argument("-r", "--recursive", action="store_true")
-    dedupe.set_defaults(func=dedupe_albums)
+    dedupe_cmd.set_defaults(func=dedupe_albums)
 
     return argparser
 

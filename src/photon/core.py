@@ -1,16 +1,7 @@
-"""Core domain types and system‑wide utilities."""
+"""Core domain types and system-wide utilities."""
 
 from pathlib import Path
-from dataclasses import dataclass
 from typing import Iterable
-
-
-@dataclass(frozen=True)
-class DedupPair:
-    """Pairs the path of a duplicated image with the path of the original"""
-
-    duplicated: Path
-    original: Path
 
 
 def _clean_image_suffix(fmt: str) -> str | None:
@@ -34,6 +25,8 @@ def _clean_image_suffix(fmt: str) -> str | None:
         ".tif": ".tif",
         ".tiff": ".tif",
         ".bmp": ".bmp",
+        ".gif": ".gif",
+        ".avif": ".avif",
     }
 
     clean_fmt = f".{fmt.lstrip('.').lower()}" if fmt else None

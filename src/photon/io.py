@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 import json
 
-from .core import select_images, DedupPair
+from .core import select_images
 
 LOGFILENAME = "log_paths.json"
 
@@ -14,7 +14,7 @@ def get_images(src: Path, recursive: bool) -> set[Path]:
     Return a list of image Paths in `src` (source directory), using suffix-based
     heuristics (does not open the files).
 
-    Does not search file in sub-directories.
+    Search file in sub-directories if `recursive`=True.
     """
 
     if not isinstance(src, Path):
@@ -27,7 +27,7 @@ def get_images(src: Path, recursive: bool) -> set[Path]:
     return select_images(paths)
 
 
-def log_deduplication(dst: Path, duplicated: Path, original: Path, trash: Path) -> None:
+def log_deduplication(dst: Path, file: Path, trash: Path) -> None:
     """Record the paths of a deduplication event in a JSON log file."""
 
     if not trash.is_dir():
@@ -36,9 +36,6 @@ def log_deduplication(dst: Path, duplicated: Path, original: Path, trash: Path) 
     if not dst.is_relative_to(trash):
         raise ValueError(f"Destination must be inside trash: {dst}")
 
-    if not original.exists():
-        raise ValueError(f"Original file does not exist: {original}")
-
     log_file = trash / LOGFILENAME
 
     if log_file.exists():
@@ -46,7 +43,7 @@ def log_deduplication(dst: Path, duplicated: Path, original: Path, trash: Path) 
     else:
         data = {}
 
-    data[dst.as_posix()] = {"duplicated": duplicated.as_posix(), "original": original.as_posix()}
+    data[dst.as_posix()] = file.as_posix()
     log_file.write_text(json.dumps(data, indent=2))
 
 
@@ -63,65 +60,37 @@ def clean_deduplication_log(log_file: Path) -> None:
         log_file.write_text(json.dumps(clean_data, indent=2))
 
 
-def move_to_trash(trash: Path, dedupe_pair: DedupPair) -> None:
+def move_to_trash(trash: Path, file: Path) -> None:
     """
     Move a duplicated file into the trash directory and log the deduplication event.
-
-    The log entry has the structure:
-
-        {
-            "<trash_destination_path>": {
-                "duplicated": "<original_duplicated_path>",
-                "original": "<original_kept_path>"
-            }
-        }
-
-    Parameters
-    ----------
-    trash : Path
-        Directory where duplicates are moved.
-    dedupe_pair : DedupPair
-
-    Returns
-    -------
-    None
     """
-
-    duplicated = dedupe_pair.duplicated
-    original = dedupe_pair.original
-
-    if duplicated is None or not duplicated.is_file():
-        raise KeyError("A deduplication pair shall have an ('duplicated', `Path`) item")
-    if original is None or not original.is_file():
-        raise KeyError("A deduplication pair shall have an ('original', `Path`) item")
 
     if trash.is_file():
         raise ValueError(f"Trash path should not be a file: {trash}")
 
     trash.mkdir(parents=True, exist_ok=True)
 
-    dst = trash / duplicated.name
+    dst = trash / file.name
+
+    # handle filename conflicts
     counter = 1
     while dst.exists():
-        dst = trash / f"{duplicated.stem}_{counter}{duplicated.suffix}"
+        dst = trash / f"{file.stem}_{counter}{file.suffix}"
         counter += 1
 
     try:
-        shutil.move(duplicated, dst)
+        shutil.move(file, dst)
     except Exception:  # pylint: disable=broad-exception-caught
         return
 
-    log_deduplication(dst=dst, duplicated=duplicated, original=original, trash=trash)
+    log_deduplication(dst=dst, file=file, trash=trash)
 
 
 def recover_from_trash(trash: Path) -> list[Path]:
     """
     Restore all files recorded in the deduplication log.
 
-    For each entry:
-        <trash_filepath> -> {"duplicated": <original_path>, "original": <kept_path>}
-
-    The function moves <trash_filepath> back to <duplicated_path> and removes the entry
+    The function moves file <trash_path> back to <original_path> and removes the entry
     from the log. Returns a list of restored file paths.
     """
 
@@ -131,32 +100,27 @@ def recover_from_trash(trash: Path) -> list[Path]:
 
     data = json.loads(log_file.read_text())
     restored: list[Path] = []
-    remaining: dict[str, dict[str, str]] = {}
+    remaining: dict[str, str] = {}
 
-    for trash_str, dedup_pair in data.items():
+    for trash_str, original_str in data.items():
         trash_path = Path(trash_str)
-        try:
-            duplicated = Path(dedup_pair["duplicated"])
-        except KeyError as err:
-            print(f"{err} on {dedup_pair} for {trash_str}")
-            continue
+        original_path = Path(original_str)
 
         # If the trash file is missing, keep the log entry
         if not trash_path.exists():
-            remaining[trash_str] = dedup_pair
             continue
 
-        # Ensure parent directory exists
-        duplicated.parent.mkdir(parents=True, exist_ok=True)
+        # Ensure original_path directory exists
+        original_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
-            shutil.move(trash_path, duplicated)
+            shutil.move(trash_path, original_path)
         except Exception:  # pylint: disable=broad-exception-caught
             # If move fails, keep the entry
-            remaining[trash_str] = dedup_pair
+            remaining[trash_str] = original_str
             continue
 
-        restored.append(duplicated)
+        restored.append(original_path)
 
     # Rewrite the log with only unrecovered entries
     log_file.write_text(json.dumps(remaining, indent=2))
