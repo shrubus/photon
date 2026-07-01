@@ -14,5 +14,6 @@ wheels/
 !.vscode/settings.json
 !.vscode/launch.json
 
-
+# directories
+.worktrees/
 data/
