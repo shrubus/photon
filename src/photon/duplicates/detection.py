@@ -5,7 +5,7 @@ from hashlib import md5
 from collections.abc import Callable
 from typing import Protocol
 
-from .model import ImgGroup, Signature
+from photon.model import ImgGroup, Signature
 
 
 class GroupFn(Protocol):  # pylint: disable=too-few-public-methods

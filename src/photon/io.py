@@ -9,7 +9,7 @@ from .core import select_images
 LOGFILENAME = "log_paths.json"
 
 
-def get_images(src: Path, recursive: bool) -> set[Path]:
+def load_images(src: Path, recursive: bool) -> set[Path]:
     """
     Return a list of image Paths in `src` (source directory), using suffix-based
     heuristics (does not open the files).
@@ -60,7 +60,7 @@ def clean_deduplication_log(log_file: Path) -> None:
         log_file.write_text(json.dumps(clean_data, indent=2))
 
 
-def move_to_trash(trash: Path, file: Path) -> None:
+def move_to_trash(file: Path, trash: Path) -> None:
     """
     Move a duplicated file into the trash directory and log the deduplication event.
     """

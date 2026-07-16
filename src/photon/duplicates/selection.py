@@ -1,28 +1,20 @@
 """
-Functions that construct (closures) or represent the selection steps.
+Define functions that implement the selection rules
 
-A selection step receives a collection of paths and apply a specified criterium
+A select function receives a collection of paths and apply a specified criterium
 to decide which duplicated files should be kept. If a selection step criterum
 do not retrieve any file to keep, it returns the full collection (no decision).
 """
 
-from dataclasses import dataclass
 from typing import Callable
 import re
 
-from .model import ImgGroup
+from photon.model import ImgGroup
 
-type Step = Callable[[ImgGroup], ImgGroup]
-
-
-@dataclass
-class Control:
-    """Shared control flags for interactive selection steps."""
-
-    skip_all: bool
+type SelectFn = Callable[[ImgGroup], ImgGroup]
 
 
-def make_selection_pipeline(steps: list[Step]) -> Step:
+def make_selection_pipeline(steps: list[SelectFn]) -> SelectFn:
     """
     Compose a list of selection steps into a single meta-Step.
 
@@ -41,7 +33,7 @@ def make_selection_pipeline(steps: list[Step]) -> Step:
     return pipeline
 
 
-def remove_filename_with(pattern: str, flags: re.RegexFlag = re.IGNORECASE) -> Step:
+def remove_filename_with(pattern: str, flags: re.RegexFlag = re.IGNORECASE) -> SelectFn:
     """
     Keep files with the minimal number of occurrences of `pattern` (case-insensitive by default),
     and stage all others for removal.
@@ -65,7 +57,7 @@ def remove_filename_with(pattern: str, flags: re.RegexFlag = re.IGNORECASE) -> S
     return step
 
 
-def ask_user(control: Control) -> Step:
+def ask_user(auto_select: bool) -> SelectFn:
     """
     Interactively select which file to keep among duplicates.
 
@@ -76,7 +68,10 @@ def ask_user(control: Control) -> Step:
     """
 
     def step(img_group: ImgGroup) -> ImgGroup:
-        if control.skip_all or img_group.is_exhausted:
+
+        nonlocal auto_select
+
+        if auto_select or img_group.is_exhausted:
             return img_group
 
         survivors = list(img_group.survivors)
@@ -90,7 +85,7 @@ def ask_user(control: Control) -> Step:
             return img_group
 
         if choice == "a":
-            control.skip_all = True
+            auto_select = True
             return img_group
 
         try:
