@@ -1,0 +1,7 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ".opencode/AGENTS.md",
+  "lint": "uv run mypy --strict src/ && uv run pylint src/",
+  "format": "uv run black src/",
+  "test": "uv run pytest"
+}
