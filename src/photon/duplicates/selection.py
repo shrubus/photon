@@ -24,6 +24,7 @@ def make_selection_pipeline(steps: list[SelectFn]) -> SelectFn:
     """
 
     def pipeline(img_group: ImgGroup) -> ImgGroup:
+        img_group.lock()
         for step in steps:
             if img_group.is_exhausted:
                 break

@@ -111,6 +111,10 @@ class ImgGroup:
     ############################################################
     ## Selection
 
+    def lock(self) -> None:
+        """Lock the group against further additions."""
+        self._locked = True
+
     @property
     def is_exhausted(self) -> bool:
         """
@@ -131,14 +135,15 @@ class ImgGroup:
         """
         Stage files for removal according to group rules.
 
-        - If any protected files exist, all non-protected survivors are staged.
-        - Otherwise, the given `candidates` are staged only if at least one file
-          would remain in `files_to_keep` after the operation.
+        - If any protected files exist, the files argument is ignored and all non-protected
+        survivors are staged.
+        - Otherwise, the given `candidates` are staged only if at least one file would remain
+        in `files_to_keep` after the operation.
         - If no survivors would remain, nothing is staged.
 
         Auto-locks on first call.
         """
-        self._locked = True
+        self.lock()
         if self.is_exhausted:
             return
 
