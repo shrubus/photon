@@ -4,27 +4,18 @@ import shutil
 from pathlib import Path
 import json
 
-from .core import select_images
+from typing import Iterator
 
 LOGFILENAME = "log_paths.json"
 
 
-def load_images(src: Path, recursive: bool) -> set[Path]:
-    """
-    Return a list of image Paths in `src` (source directory), using suffix-based
-    heuristics (does not open the files).
+def load_paths(src: Path, recursive: bool) -> Iterator[Path]:
+    """Yield all file paths under `src` (optionally recursive)."""
 
-    Search file in sub-directories if `recursive`=True.
-    """
-
-    if not isinstance(src, Path):
-        raise TypeError("`src` must be of `pathlib.Path` type")
     if not src.is_dir(follow_symlinks=False):
         raise ValueError(f"Path is not a directory: {src}")
 
-    paths = src.rglob("*") if recursive is True else src.iterdir()
-
-    return select_images(paths)
+    return src.rglob("*") if recursive is True else src.glob("*")
 
 
 def log_deduplication(dst: Path, file: Path, trash: Path) -> None:

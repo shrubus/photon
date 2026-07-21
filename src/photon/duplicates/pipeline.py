@@ -9,7 +9,8 @@ This layer prepares the two main execution steps:
 
 from pathlib import Path
 
-from photon.io import load_images, move_to_trash
+from photon.io import load_paths, move_to_trash
+from photon.image import filter_images, by_suffix
 from photon.model import ImgGroup
 from photon.duplicates.detection import GroupFn
 from photon.duplicates.selection import SelectFn
@@ -38,9 +39,10 @@ def resolve(
         each annotated with survivor and removal decisions applied by `select_fn`.
     """
 
-    images = load_images(src, recursive)
+    paths = load_paths(src, recursive)
+    images = filter_images(paths, key=by_suffix)
     if ref_dir is not None:
-        images.update(load_images(ref_dir, recursive=True))
+        images.update(load_paths(ref_dir, recursive=True))
 
     img_grps = group_fn(images, ref_dir)
     for img_grp in img_grps:
