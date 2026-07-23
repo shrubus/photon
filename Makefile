@@ -156,21 +156,27 @@ lint:
 
 .PHONY: format
 format:
-	@uv run black src/
+	@uv run black src/ tests/
+
+.PHONY: test
+test:
+	@uv run pytest
 
 ## Soft diagnostics
 .PHONY: precommit
 precommit:
 	@$(MAKE) --no-print-directory format || true
 	@$(MAKE) --no-print-directory lint || true
+	@$(MAKE) --no-print-directory test || true
 
 
 .PHONY: git_precommit_hook
 git_precommit_hook:
 	@./scripts/git_enforce_staged.sh
-	@uv run black --check src/
+	@uv run black --check src/ tests/
 	@uv lock --check
 	@$(MAKE) lint
+	@$(MAKE) test
 	@$(MAKE) clean
 	@./scripts/git_enforce_staged.sh
 
