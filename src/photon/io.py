@@ -9,13 +9,14 @@ from typing import Iterator
 LOGFILENAME = "log_paths.json"
 
 
-def load_paths(src: Path, recursive: bool) -> Iterator[Path]:
+def load_files(src: Path, recursive: bool) -> Iterator[Path]:
     """Yield all file paths under `src` (optionally recursive)."""
 
     if not src.is_dir(follow_symlinks=False):
         raise ValueError(f"Path is not a directory: {src}")
 
-    return src.rglob("*") if recursive is True else src.glob("*")
+    paths = src.rglob("*") if recursive is True else src.glob("*")
+    return (p for p in paths if p.is_file(follow_symlinks=False))
 
 
 def log_deduplication(dst: Path, file: Path, trash: Path) -> None:

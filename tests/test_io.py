@@ -7,41 +7,59 @@ from pathlib import Path
 
 import pytest
 
-from photon.io import load_paths
+from photon.io import load_files
 
 
-class TestLoadPaths:
-    """Test io.load_paths(): generic directory walker with recursive/non-recursive modes"""
+class TestLoadFiles:
+    """Test io.load_files(): generic directory walker with recursive/non-recursive modes"""
 
     @pytest.fixture
-    def nested_images(self, tmp_path: Path):
+    def nested_files(self, tmp_path: Path):
+
+        file_1 = tmp_path / "file_1.jpg"
+        file_1.write_bytes(b"file_1")
+        link_1 = tmp_path / "link_1.jpg"
+        link_1.symlink_to(file_1)
+
         subdir = tmp_path / "sub"
         subdir.mkdir()
-        file_1 = tmp_path / "img_1.jpg"
-        file_2 = subdir / "img_2.png"
-        file_1.write_bytes(b"img jpg")
-        file_2.write_bytes(b"img png")
-        return tmp_path, file_1, file_2
+
+        file_2 = subdir / "file_2.jpg"
+        file_2.write_bytes(b"file_2")
+        link_2 = subdir / "link_2.jpg"
+        link_2.symlink_to(file_2)
+
+        return tmp_path, file_1, link_1, subdir, file_2, link_2
 
     ##############################################
     #### Valid inputs
 
-    def test_load_src_recursively(self, nested_images: tuple[Path, ...]):
-        src_dir, file_1, file_2 = nested_images
+    def test_load_src_recursively(self, nested_files: tuple[Path, ...]):
+        src_dir, file_1, link_1, subdir, file_2, link_2 = nested_files
 
-        result = set(load_paths(src_dir, recursive=True))
+        result = set(load_files(src_dir, recursive=True))
+
         assert file_1 in result
+        assert link_1 not in result
+
+        assert subdir not in result
         assert file_2 in result
+        assert link_2 not in result
 
-    def test_load_src_non_recursively(self, nested_images: tuple[Path, ...]):
-        src_dir, file_1, file_2 = nested_images
+    def test_load_src_non_recursively(self, nested_files: tuple[Path, ...]):
+        src_dir, file_1, link_1, subdir, file_2, link_2 = nested_files
 
-        result = set(load_paths(src_dir, recursive=False))
+        result = set(load_files(src_dir, recursive=False))
+
         assert file_1 in result
+        assert link_1 not in result
+
+        assert subdir not in result
         assert file_2 not in result
+        assert link_2 not in result
 
     def test_load_src_empty(self, tmp_path: Path):
-        result = set(load_paths(tmp_path, recursive=False))
+        result = set(load_files(tmp_path, recursive=False))
         assert result == set()
 
     ##############################################
@@ -49,13 +67,13 @@ class TestLoadPaths:
 
     def test_raise_src_path_no_exists(self):
         with pytest.raises(ValueError, match="not a directory"):
-            load_paths(Path("/nonexistent"), recursive=False)
+            load_files(Path("/nonexistent"), recursive=False)
 
     def test_raise_src_path_is_file(self, tmp_path: Path):
         f = tmp_path / "file.txt"
         f.write_bytes(b"data")
         with pytest.raises(ValueError, match="not a directory"):
-            load_paths(f, recursive=False)
+            load_files(f, recursive=False)
 
     def test_raise_src_path_is_symlink(self, tmp_path: Path):
         sub = tmp_path / "sub"
@@ -63,4 +81,4 @@ class TestLoadPaths:
         lnk = tmp_path / "lnk"
         lnk.symlink_to(sub)
         with pytest.raises(ValueError, match="not a directory"):
-            load_paths(lnk, recursive=False)
+            load_files(lnk, recursive=False)
