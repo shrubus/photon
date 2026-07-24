@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from photon.model import ImgGroup
+from photon.model import FileGroup
 
 
 class TestImgGroupCreate:
@@ -15,20 +15,20 @@ class TestImgGroupCreate:
 
     def test_minimal_init(self):
         """Without reference directory (protected images)"""
-        grp = ImgGroup(signature=42)
+        grp = FileGroup(signature=42)
         assert grp.signature == 42
         assert grp.ref_dir is None
         assert len(grp) == 0
 
     def test_with_reference_dir(self, ref_img: Path):
         """With reference directory (photos from reference album protected from deletion)"""
-        grp = ImgGroup(signature=42, ref_dir=ref_img.parent)
+        grp = FileGroup(signature=42, ref_dir=ref_img.parent)
         assert grp.ref_dir == ref_img.parent
 
     def test_reject_invalid_reference_dir(self):
         """With non-existent path for reference directory"""
         with pytest.raises(ValueError, match="Reference"):
-            ImgGroup(signature=42, ref_dir=Path("/nonexistent"))
+            FileGroup(signature=42, ref_dir=Path("/nonexistent"))
 
 
 class TestImgGroupAdd:
@@ -41,7 +41,7 @@ class TestImgGroupAdd:
         to remove'.
         """
 
-        grp = ImgGroup(signature=42)
+        grp = FileGroup(signature=42)
         grp.add(src_img, signature=42)
 
         assert grp.survivors == frozenset({src_img})
@@ -53,7 +53,7 @@ class TestImgGroupAdd:
         Files inside ref_dir are protected against deletion, therefore do not qualify either as
         'survivor' (non-protected file that is not stated for removal) or as a 'file to remove'.
         """
-        grp = ImgGroup(signature=42, ref_dir=ref_img.parent)
+        grp = FileGroup(signature=42, ref_dir=ref_img.parent)
         grp.add(ref_img, signature=42)
 
         assert ref_img not in grp.survivors
@@ -63,7 +63,7 @@ class TestImgGroupAdd:
 
     def test_reject_nonexistent_file(self):
         """ImgGroup.add method requires that path is an actual file"""
-        grp = ImgGroup(signature=42)
+        grp = FileGroup(signature=42)
         with pytest.raises(ValueError, match="Not a file"):
             grp.add(Path("/nonexistent.jpg"), signature=42)
 
@@ -78,7 +78,7 @@ class TestImgGroupAdd:
         dup_file = src_img.with_stem("dup")
         dup_file.write_bytes(src_img.read_bytes())
 
-        grp = ImgGroup(signature=42)
+        grp = FileGroup(signature=42)
         grp.add(src_img, signature=42)
         grp.add(dup_file, signature=42)
 
@@ -92,7 +92,7 @@ class TestImgGroupAdd:
     def test_reject_add_after_explicit_lock(self, src_img: Path):
         """Test that you cannot add extra files to Image group after locking"""
 
-        grp = ImgGroup(signature=42)
+        grp = FileGroup(signature=42)
         grp.lock()
         with pytest.raises(RuntimeError, match="locked"):
             grp.add(src_img, signature=42)
@@ -109,7 +109,7 @@ class TestImgGroupStageForRemoval:
         dup = src_img.with_stem("duplicate")
         dup.write_bytes(keep.read_bytes())
 
-        grp = ImgGroup(signature=42)
+        grp = FileGroup(signature=42)
         grp.add(keep, signature=42)
         grp.add(dup, signature=42)
 
@@ -133,7 +133,7 @@ class TestImgGroupStageForRemoval:
         call of .stage_for_removal, independently on the input paths.
         """
 
-        grp = ImgGroup(signature=42, ref_dir=ref_img.parent)
+        grp = FileGroup(signature=42, ref_dir=ref_img.parent)
         grp.add(ref_img, signature=42)
         grp.add(src_img, signature=42)
         grp.add(src_dup, signature=42)
@@ -147,7 +147,7 @@ class TestImgGroupStageForRemoval:
 
     def test_preserves_last_survivor(self, src_img: Path, src_dup: Path):
         """Make sure the last survivor is not staged for removal, if no ref dir is defined"""
-        grp = ImgGroup(signature=42)
+        grp = FileGroup(signature=42)
         grp.add(src_img, signature=42)
         grp.add(src_dup, signature=42)
 
@@ -160,7 +160,7 @@ class TestImgGroupStageForRemoval:
 
     def test_is_noop_when_exhausted(self, src_img: Path, src_dup: Path):
 
-        grp = ImgGroup(signature=42)
+        grp = FileGroup(signature=42)
         grp.add(src_img, signature=42)
         grp.add(src_dup, signature=42)
         grp.stage_for_removal({src_dup})
@@ -184,7 +184,7 @@ class TestIsExhausted:
 
     def test_false_when_multiple_survivors_without_protected(self, src_img: Path, src_dup: Path):
 
-        grp = ImgGroup(signature=42)
+        grp = FileGroup(signature=42)
         grp.add(src_img, signature=42)
         grp.add(src_dup, signature=42)
 
@@ -192,14 +192,14 @@ class TestIsExhausted:
 
     def test_true_when_one_survivor_without_protected(self, src_img: Path):
 
-        grp = ImgGroup(signature=42)
+        grp = FileGroup(signature=42)
         grp.add(src_img, signature=42)
 
         assert grp.is_exhausted is True
 
     def test_false_when_one_survivor_with_protected(self, src_img: Path, ref_img: Path):
 
-        grp = ImgGroup(signature=42, ref_dir=ref_img.parent)
+        grp = FileGroup(signature=42, ref_dir=ref_img.parent)
         grp.add(src_img, signature=42)
         grp.add(ref_img, signature=42)
 
@@ -207,7 +207,7 @@ class TestIsExhausted:
 
     def test_true_when_no_survivors_with_protected(self, src_img: Path, ref_img: Path):
 
-        grp = ImgGroup(signature=42, ref_dir=ref_img.parent)
+        grp = FileGroup(signature=42, ref_dir=ref_img.parent)
         grp.add(ref_img, signature=42)
         grp.add(src_img, signature=42)
 
@@ -227,7 +227,7 @@ class TestSignatures:
         general case, image signatures can be different from group signatures.
         """
 
-        grp = ImgGroup(signature=42)
+        grp = FileGroup(signature=42)
         grp.add(src_img, signature=41)
         grp.add(src_dup, signature=43)
 
@@ -242,7 +242,7 @@ class TestLenAndCounts:
 
     def test_len_includes_all_buckets(self, src_img: Path, src_dup: Path, ref_img: Path):
 
-        grp = ImgGroup(signature=42, ref_dir=ref_img.parent)
+        grp = FileGroup(signature=42, ref_dir=ref_img.parent)
         grp.add(src_img, signature=42)
         grp.add(src_dup, signature=42)
         grp.add(ref_img, signature=42)
@@ -259,7 +259,7 @@ class TestReadOnlyProperties:
 
     def test_survivors_cannot_be_assigned(self, src_img: Path, src_dup: Path):
 
-        grp = ImgGroup(signature=42)
+        grp = FileGroup(signature=42)
         grp.add(src_img, signature=42)
         grp.add(src_dup, signature=42)
 
@@ -268,7 +268,7 @@ class TestReadOnlyProperties:
 
     def test_files_to_remove_cannot_be_assigned(self, src_img: Path, src_dup: Path):
 
-        grp = ImgGroup(signature=42)
+        grp = FileGroup(signature=42)
         grp.add(src_img, signature=42)
         grp.add(src_dup, signature=42)
 

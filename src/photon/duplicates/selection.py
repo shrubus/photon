@@ -9,9 +9,9 @@ do not retrieve any file to keep, it returns the full collection (no decision).
 from typing import Callable
 import re
 
-from photon.model import ImgGroup
+from photon.model import FileGroup
 
-type SelectFn = Callable[[ImgGroup], ImgGroup]
+type SelectFn = Callable[[FileGroup], FileGroup]
 
 
 def make_selection_pipeline(steps: list[SelectFn]) -> SelectFn:
@@ -23,7 +23,7 @@ def make_selection_pipeline(steps: list[SelectFn]) -> SelectFn:
     stops early if the group becomes exhausted.
     """
 
-    def pipeline(img_group: ImgGroup) -> ImgGroup:
+    def pipeline(img_group: FileGroup) -> FileGroup:
         img_group.lock()
         for step in steps:
             if img_group.is_exhausted:
@@ -44,7 +44,7 @@ def remove_filename_with(pattern: str, flags: re.RegexFlag = re.IGNORECASE) -> S
 
     pat = re.compile(pattern, flags=flags)
 
-    def step(img_group: ImgGroup) -> ImgGroup:
+    def step(img_group: FileGroup) -> FileGroup:
         if img_group.is_exhausted:
             return img_group
 
@@ -68,7 +68,7 @@ def ask_user(auto_select: bool) -> SelectFn:
     - 'a': skip all remaining groups
     """
 
-    def step(img_group: ImgGroup) -> ImgGroup:
+    def step(img_group: FileGroup) -> FileGroup:
 
         nonlocal auto_select
 

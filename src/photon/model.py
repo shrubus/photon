@@ -1,5 +1,5 @@
 """
-Model objects for image-deduplication state tracking.
+Model objects for file-deduplication state tracking.
 """
 
 from pathlib import Path
@@ -10,9 +10,9 @@ type Signature = int | Sequence[float]
 
 
 @dataclass
-class ImgGroup:
+class FileGroup:
     """
-    Mutable state machine for managing a group of images sharing the same signature.
+    Mutable state machine for managing a group of files sharing the same signature.
 
     Public interface:
     - `signature`: identifier for the group.
@@ -78,7 +78,7 @@ class ImgGroup:
         """Register a file before locking."""
 
         if self._locked is True:
-            raise RuntimeError("Image group is locked; cannot add new files")
+            raise RuntimeError("File group is locked; cannot add new files")
 
         if not path.is_file(follow_symlinks=False):
             raise ValueError(f"Not a file: {path}")
@@ -103,10 +103,10 @@ class ImgGroup:
         """Ensure at least one file survives and no file is both kept and staged for removal."""
 
         if not self._to_keep:
-            raise ValueError(f"No path to the original image with signature {self.signature}")
+            raise ValueError(f"No path to the original file with signature {self.signature}")
 
         if not self._to_keep.isdisjoint(self._to_remove):
-            raise ValueError("Image simultaneously marked as kept and staged for removal")
+            raise ValueError("File simultaneously marked as kept and staged for removal")
 
     ############################################################
     ## Selection

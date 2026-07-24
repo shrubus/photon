@@ -11,14 +11,14 @@ from pathlib import Path
 
 from photon.io import load_files, move_to_trash
 from photon.image import filter_images, by_suffix
-from photon.model import ImgGroup
+from photon.model import FileGroup
 from photon.duplicates.detection import GroupFn
 from photon.duplicates.selection import SelectFn
 
 
 def resolve(
     src: Path, ref_dir: Path | None, recursive: bool, group_fn: GroupFn, select_fn: SelectFn
-) -> list[ImgGroup]:
+) -> list[FileGroup]:
     """
     Resolve duplicate images in a source directory using a configurable pipeline.
 
@@ -51,7 +51,7 @@ def resolve(
     return img_grps
 
 
-def remove(img_grps: list[ImgGroup], trash: Path) -> set[Path]:
+def remove(img_grps: list[FileGroup], trash: Path) -> set[Path]:
     """
     Move all files marked for removal in each `ImgGroup` to a trash directory.
 

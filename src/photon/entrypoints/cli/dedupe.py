@@ -23,14 +23,14 @@ import argparse
 from pathlib import Path
 
 from photon import duplicates
-from photon.model import ImgGroup
+from photon.model import FileGroup
 from photon.duplicates.selection import make_selection_pipeline
 from photon.runtime import build_dedupe_config
 
 from .typing import DomainType
 
 
-def _report_staged_for_removal(resolved: list[ImgGroup]) -> None:
+def _report_staged_for_removal(resolved: list[FileGroup]) -> None:
     """Report duplicated files staged for removal"""
     print("\nStaged for removal:\n")
     for img_grp in resolved:
@@ -38,7 +38,7 @@ def _report_staged_for_removal(resolved: list[ImgGroup]) -> None:
             print("\t".join(str(f) for f in files))
 
 
-def _is_removal_user_approved(resolved: list[ImgGroup]) -> bool:
+def _is_removal_user_approved(resolved: list[FileGroup]) -> bool:
     """
     Prompt the user to confirm whether duplicate images should be moved to trash.
     Returns True if the user confirms removal, False otherwise.
